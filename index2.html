@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聽歌學日文</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card-hidden { display: none; }
+        .active-tab { border-bottom: 4px solid #6366f1; color: #6366f1; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen pb-10">
+    <div class="max-w-2xl mx-auto bg-white min-h-screen shadow-md">
+        <header class="bg-indigo-600 p-4 text-white sticky top-0 z-10 flex justify-between items-center">
+            <h1 class="text-xl font-bold">聽歌學日文</h1>
+            <input type="date" id="datePicker" class="text-black text-sm p-1 rounded" onchange="loadLesson()">
+        </header>
+
+        <div id="videoContainer" class="bg-black aspect-video w-full flex items-center justify-center text-white text-sm">
+            <p id="videoPlaceholder">請在下方貼入 YouTube 連結後儲存</p>
+        </div>
+
+        <details class="bg-gray-100 p-4">
+            <summary class="cursor-pointer text-sm font-medium text-gray-600">編輯/貼入今日課程內容</summary>
+            <textarea id="ytInput" class="w-full mt-2 p-2 border rounded text-sm" placeholder="貼上 YouTube 網址..."></textarea>
+            <textarea id="lyricsInput" class="w-full mt-2 h-32 p-2 border rounded text-sm" placeholder="第一頁：全曲歌詞..."></textarea>
+            <textarea id="wordsInput" class="w-full mt-2 h-32 p-2 border rounded text-sm" placeholder="第二頁：單字表..."></textarea>
+            <textarea id="grammarInput" class="w-full mt-2 h-32 p-2 border rounded text-sm" placeholder="第三頁：文法解析..."></textarea>
+            <button onclick="saveLesson()" class="w-full bg-indigo-500 text-white mt-2 py-2 rounded-lg font-bold">儲存課程</button>
+        </details>
+
+        <div class="flex border-b border-gray-200 sticky top-[60px] bg-white z-10">
+            <button onclick="switchTab(1)" id="tab1" class="flex-1 py-3 text-sm active-tab">歌詞</button>
+            <button onclick="switchTab(2)" id="tab2" class="flex-1 py-3 text-sm text-gray-500">單字</button>
+            <button onclick="switchTab(3)" id="tab3" class="flex-1 py-3 text-sm text-gray-500">文法</button>
+        </div>
+
+        <div class="p-6">
+            <div id="card1" class="card-content prose"></div>
+            <div id="card2" class="card-content card-hidden prose"></div>
+            <div id="card3" class="card-content card-hidden prose"></div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabIndex) {
+            // 切換按鈕樣式
+            for(let i=1; i<=3; i++) {
+                document.getElementById('tab'+i).classList.remove('active-tab');
+                document.getElementById('tab'+i).classList.add('text-gray-500');
+                document.getElementById('card'+i).classList.add('card-hidden');
+            }
+            document.getElementById('tab'+tabIndex).classList.add('active-tab');
+            document.getElementById('tab'+tabIndex).classList.remove('text-gray-500');
+            document.getElementById('card'+tabIndex).classList.remove('card-hidden');
+        }
+
+        function getYoutubeID(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function saveLesson() {
+            const date = document.getElementById('datePicker').value;
+            if (!date) return alert("請先選擇日期");
+            
+            const data = {
+                yt: document.getElementById('ytInput').value,
+                lyrics: document.getElementById('lyricsInput').value,
+                words: document.getElementById('wordsInput').value,
+                grammar: document.getElementById('grammarInput').value
+            };
+            
+            localStorage.setItem('lesson-' + date, JSON.stringify(data));
+            loadLesson();
+            alert("課程已儲存！");
+        }
+
+        function loadLesson() {
+            const date = document.getElementById('datePicker').
+value;
+            const rawData = localStorage.getItem('lesson-' + date);
+            
+            if (rawData) {
+                const data = JSON.parse(rawData);
+                document.getElementById('ytInput').value = data.yt || "";
+                document.getElementById('lyricsInput').value = data.lyrics || "";
+                document.getElementById('wordsInput').value = data.words || "";
+                document.getElementById('grammarInput').value = data.grammar || "";
+
+                // 處理 YouTube 內嵌
+                const ytID = getYoutubeID(data.yt);
+                if (ytID) {
+                    document.getElementById('videoContainer').innerHTML = <iframe class="w-full h-full" src="https://www.youtube.com/embed/${ytID}" frameborder="0" allowfullscreen></iframe>;
+                } else {
+                    document.getElementById('videoContainer').innerHTML = <p class="text-sm">影片連結無效</p>;
+                }
+
+                // 處理文字顯示 (保留換行)
+                document.getElementById('card1').innerHTML = (data.lyrics || "尚未輸入歌詞").replace(/\n/g, '<br>');
+                document.getElementById('card2').innerHTML = (data.words || "尚未輸入單字").replace(/\n/g, '<br>');
+                document.getElementById('card3').innerHTML = (data.grammar || "尚未輸入文法").replace(/\n/g, '<br>');
+            } else {
+                // 清空
+                ["ytInput", "lyricsInput", "wordsInput", "grammarInput"].forEach(id => document.getElementById(id).value = "");
+                document.getElementById('videoContainer').innerHTML = <p>當天沒有課程內容</p>;
+                document.getElementById('card1').innerHTML = "請點擊上方編輯區開始新課程";
+                document.getElementById('card2').innerHTML = "";
+                document.getElementById('card3').innerHTML = "";
+            }
+        }
+
+        // 初始化：設為今天日期
+        document.getElementById('datePicker').valueAsDate = new Date();
+        loadLesson();
+    </script>
+</body>
+</html>
