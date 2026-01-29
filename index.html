@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聽歌學日文</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card-hidden { display: none; }
+        .active-tab { border-bottom: 4px solid #6366f1; color: #6366f1; font-weight: bold; }
+        .content-display { white-space: pre-wrap; word-wrap: break-word; font-family: sans-serif; line-height: 1.6; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg">
+        <div class="bg-indigo-600 p-4 text-white flex justify-between items-center sticky top-0 z-20">
+            <h1 class="font-bold">聽歌學日文</h1>
+            <input type="date" id="datePicker" class="text-black p-1 rounded text-sm" onchange="loadLesson()">
+        </div>
+
+        <div id="videoBox" class="bg-black aspect-video w-full flex items-center justify-center">
+            <p class="text-gray-400 text-xs">影片顯示區域</p>
+        </div>
+
+        <div class="p-4 bg-gray-50 border-b">
+            <details class="mb-2" id="editMenu">
+                <summary class="cursor-pointer text-indigo-600 font-bold text-sm">✏️ 點此輸入/修改課程內容</summary>
+                <div class="space-y-3 mt-3">
+                    <input type="text" id="in-yt" class="w-full p-2 border rounded text-sm" placeholder="YouTube 網址 (選填)">
+                    <textarea id="in-1" class="w-full h-32 p-2 border rounded text-sm" placeholder="第一頁：歌詞對照..."></textarea>
+                    <textarea id="in-2" class="w-full h-32 p-2 border rounded text-sm" placeholder="第二頁：重點單字..."></textarea>
+                    <textarea id="in-3" class="w-full h-32 p-2 border rounded text-sm" placeholder="第三頁：文法解析..."></textarea>
+                    <div class="flex gap-2">
+                        <button onclick="saveData()" class="flex-1 bg-indigo-500 text-white py-3 rounded-lg font-bold shadow active:bg-indigo-700">確認儲存</button>
+                        <button onclick="clearAll()" class="bg-red-100 text-red-600 px-3 py-3 rounded-lg text-xs">清除全部</button>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div class="flex border-b sticky top-[56px] bg-white z-10">
+            <button onclick="showTab(1)" id="t1" class="flex-1 py-4 text-sm active-tab">歌詞</button>
+            <button onclick="showTab(2)" id="t2" class="flex-1 py-4 text-sm text-gray-400">單字</button>
+            <button onclick="showTab(3)" id="t3" class="flex-1 py-4 text-sm text-gray-400">文法</button>
+        </div>
+
+        <div class="p-6">
+            <div id="c1" class="content-display text-gray-800"></div>
+            <div id="c2" class="content-display text-gray-800 card-hidden"></div>
+            <div id="c3" class="content-display text-gray-800 card-hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(n) {
+            for(let i=1; i<=3; i++) {
+                document.getElementById('t'+i).className = "flex-1 py-4 text-sm text-gray-400";
+                document.getElementById('c'+i).classList.add('card-hidden');
+            }
+            document.getElementById('t'+n).className = "flex-1 py-4 text-sm active-tab";
+            document.getElementById('c'+n).classList.remove('card-hidden');
+        }
+
+        function saveData() {
+            try {
+                const date = document.getElementById('datePicker').value;
+                if(!date) return alert("請先選取日期");
+
+                const obj = {
+                    yt: document.getElementById('in-yt').value.trim(),
+                    l: document.getElementById('in-1').value,
+                    w: document.getElementById('in-2').value,
+                    g: document.getElementById('in-3').value
+                };
+
+                localStorage.setItem('lesson-' + date, JSON.stringify(obj));
+                alert("✅ 儲存成功！");
+                document.getElementById('editMenu').open = false;
+                loadLesson();
+            } catch (err) {
+alert("儲存出錯：" + err);
+            }
+        }
+
+        function loadLesson() {
+            const date = document.getElementById('datePicker').value;
+            const raw = localStorage.getItem('lesson-' + date);
+            
+            // 清空目前的輸入框
+            document.getElementById('in-yt').value = "";
+            document.getElementById('in-1').value = "";
+            document.getElementById('in-2').value = "";
+            document.getElementById('in-3').value = "";
+
+            if(raw) {
+                const data = JSON.parse(raw);
+                // 回填輸入框
+                document.getElementById('in-yt').value = data.yt || "";
+                document.getElementById('in-1').value = data.l || "";
+                document.getElementById('in-2').value = data.w || "";
+                document.getElementById('in-3').value = data.g || "";
+
+                // 顯示文字
+                document.getElementById('c1').innerText = data.l || "尚未輸入歌詞內容";
+                document.getElementById('c2').innerText = data.w || "尚未輸入單字內容";
+                document.getElementById('c3').innerText = data.g || "尚未輸入文法內容";
+
+                // 處理影片 (防錯邏輯)
+                let videoId = "";
+                const url = data.yt || "";
+                if(url.includes("v=")) {
+                    videoId = url.split("v=")[1].split("&")[0];
+                } else if(url.includes("youtu.be/")) {
+                    videoId = url.split("youtu.be/")[1].split("?")[0];
+                }
+
+                if(videoId && videoId.length === 11) {
+                    document.getElementById('videoBox').innerHTML = <iframe class="w-full h-full" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>;
+                } else {
+                    document.getElementById('videoBox').innerHTML = <p class="text-gray-500 text-xs px-4 text-center">影片網址格式不正確，僅支持標準 YouTube 連結</p>;
+                }
+            } else {
+                document.getElementById('videoBox').innerHTML = <p class="text-gray-500 text-xs">今日尚無內容</p>;
+                document.getElementById('c1').innerText = "請展開編輯區開始學習。";
+                document.getElementById('c2').innerText = "";
+                document.getElementById('c3').innerText = "";
+            }
+        }
+
+        function clearAll() {
+            if(confirm("確定要刪除所有已儲存的課程嗎？此動作無法復原。")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        window.onload = function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('datePicker').value = today;
+            loadLesson();
+        };
+    </script>
+</body>
+</html>
