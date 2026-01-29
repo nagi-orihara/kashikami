@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日文歌學習月曆</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <header class="bg-indigo-600 p-6 text-white text-center">
+            <h1 class="text-2xl font-bold">私のJ-Pop學習筆記</h1>
+            <p class="text-sm opacity-80">點選日期，開始今天的課程</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3">
+            <div class="p-4 border-r border-gray-200">
+                <input type="date" id="datePicker" class="w-full p-2 border rounded mb-4" onchange="loadLesson()">
+                <div class="text-sm text-gray-500 mt-4">
+                    <p>💡 操作說明：</p>
+                    <ul class="list-disc ml-4">
+                        <li>選取日期</li>
+                        <li>貼上 Gemini 生成的內容</li>
+                        <li>點擊儲存，內容會存在瀏覽器中</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-span-2 p-6">
+                <div id="lessonContent">
+                    <h2 id="displayDate" class="text-xl font-bold text-gray-800 mb-4">請選擇日期</h2>
+                    <textarea id="lessonInput" class="w-full h-64 p-3 border rounded-lg mb-4 placeholder-gray-400" placeholder="請將 Gemini 生成的學習內容貼在此處..."></textarea>
+                    <button onclick="saveLesson()" class="bg-indigo-500 text-white px-6 py-2 rounded-full hover:bg-indigo-700 transition">儲存今日課程</button>
+                    
+                    <hr class="my-6">
+                    <div id="savedDisplay" class="prose max-w-none text-gray-700">
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function loadLesson() {
+            const date = document.getElementById('datePicker').value;
+            document.getElementById('displayDate').innerText = "日期：" + date;
+            const savedData = localStorage.getItem('lesson-' + date);
+            document.getElementById('lessonInput').value = savedData || "";
+            document.getElementById('savedDisplay').innerHTML = (savedData || "當天還沒有筆記內容。").replace(/\n/g, '<br>');
+        }
+
+        function saveLesson() {
+            const date = document.getElementById('datePicker').value;
+            if (!date) return alert("請先選擇日期！");
+            const content = document.getElementById('lessonInput').value;
+            localStorage.setItem('lesson-' + date, content);
+            loadLesson();
+            alert("儲存成功！");
+        }
+    </script>
+</body>
+</html>
