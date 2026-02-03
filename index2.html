@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カシカミ - AI 歌詞教室</title>
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<meta name="apple-mobile-web-app-title" content="カシカミ">
+<meta name="mobile-web-app-capable" content="yes">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=DotGothic16&family=Hachi+Maru+Pop&family=Yomogi&family=Klee+One:wght@600&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --theme-color: #6366f1;
+            --jp-color: #1a1a1a;
+            --cn-color: #10b981;
+            --base-font-size: 14px;
+            --selected-font: 'Noto Sans JP', sans-serif;
+        }
+
+        body { font-size: var(--base-font-size); background-color: #f8fafc; font-family: var(--selected-font); transition: all 0.3s; color: #334155; }
+        .theme-bg { background-color: var(--theme-color) !important; }
+        
+        /* 歌詞方塊樣式 */
+        .lyric-block { 
+            display: flex; flex-direction: column; margin-bottom: 1.5rem; padding: 12px;
+            border-radius: 12px; border: 1px solid transparent; transition: all 0.2s; cursor: pointer;
+            background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .lyric-block:hover { background: #f8fafc; border-color: var(--theme-color); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        
+        .jp-line { color: var(--jp-color); font-weight: bold; line-height: 2.2; display: block; }
+        .cn-line { color: var(--cn-color); font-size: 0.9em; margin-top: 4px; display: block; font-family: sans-serif; }
+
+        .card-hidden { display: none; }
+        .active-tab { border-bottom: 4px solid var(--theme-color); color: var(--theme-color); font-weight: bold; }
+        
+        #ai-widget {
+            position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; 
+            border-radius: 25px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; cursor: pointer;
+        }
+        #ai-chat-box {
+            position: fixed; bottom: 80px; right: 20px; width: 300px; height: 400px; 
+            background: white; border-radius: 15px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            display: none; flex-direction: column; overflow: hidden; z-index: 99;
+        }
+    </style>
+</head>
+<body class="pb-24">
+    <div class="max-w-xl mx-auto bg-white min-h-screen shadow-2xl flex flex-col border-x border-gray-100">
+        
+        <header class="theme-bg p-4 text-white flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🐑</span>
+                <h1 class="font-bold text-xl tracking-wider">カシカミ</h1>
+            </div>
+            <input type="date" id="datePicker" class="text-black p-1 rounded text-sm outline-none" onchange="loadLesson()">
+        </header>
+
+        <details class="bg-slate-50 border-b">
+            <summary class="p-3 text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-100 transition">🎨 介面與風格設定</summary>
+            <div class="p-4 grid grid-cols-2 gap-4 text-xs">
+                <div>
+                    <label class="block mb-1 font-semibold">顏色自定義</label>
+                    <div class="flex gap-2">
+                        <input type="color" onchange="updateStyle('--theme-color', this.value)" title="主題">
+                        <input type="color" onchange="updateStyle('--jp-color', this.value)" title="日文">
+                        <input type="color" onchange="updateStyle('--cn-color', this.value)" title="中文">
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-1 font-semibold">字體大小</label>
+                    <input type="range" min="12" max="24" value="14" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" oninput="updateStyle('--base-font-size', this.value + 'px')">
+                </div>
+                <div class="col-span-2">
+                    <label class="block mb-1 font-semibold">日文字體風格</label>
+                    <select onchange="updateStyle('--selected-font', this.value)" class="w-full p-2 border rounded bg-white shadow-sm">
+                        <option value="'Noto Sans JP', sans-serif">預設黑體 (Standard)</option>
+                        <option value="'Dela Gothic One', cursive">熱血搖滾 (Dela Gothic One)</option>
+                        <option value="'DotGothic16', sans-serif">經典像素 (DotGothic16)</option>
+                        <option value="'Hachi Maru Pop', cursive">圓潤POP (Hachi Maru Pop)</option>
+                        <option value="'Yomogi', cursive">溫暖手寫 (Yomogi)</option>
+                        <option value="'Klee One', serif">優雅教科書 (Klee One)</option>
+                    </select>
+                </div>
+            </div>
+        </details>
+
+        <div id="videoBox" class="bg-slate-900 aspect-video flex items-center justify-center">
+            <p class="text-slate-500 text-xs tracking-widest">WATING FOR LESSON...</p>
+        </div>
+
+        <div class="p-4 bg-slate-50 border-b">
+            <input type="password" id="apiKey" class="w-full p-2 border rounded text-xs mb-2 shadow-inner" placeholder="請在此輸入 API Key">
+            <div class="flex gap-2 mb-2">
+                <input type="text" id="songName" class="flex-1 p-2 border rounded text-sm focus:border-indigo-500 outline-none" placeholder="歌名歌手 (例: Lemon 米津玄師)">
+                <button onclick="askAI()" id="aiBtn" class="theme-bg text-white px-4 py-2 rounded font-bold text-sm shadow-lg active:scale-95 transition">AI 生成</button>
+            </div>
+            
+            <details class="text-[10px] text-gray-400">
+                <summary class="cursor-pointer hover:text-gray-600">🛠️ 職人手作模式 (手動填充內容)</summary>
+                <div class="mt-2 space-y-2">
+                    <input id="in-yt" class="w-full border p-1 rounded" placeholder="YouTube ID">
+                    <textarea id="in-l" class="w-full h-24 border p-1 rounded" placeholder="歌詞 HTML"></textarea>
+                    <textarea id="in-w" class="w-full h-16 border p-1 rounded" placeholder="核心單字..."></textarea>
+                    <textarea id="in-g" class="w-full h-16 border p-1 rounded" placeholder="語法奧秘..."></textarea>
+                    <button onclick="saveData()" class="w-full bg-slate-700 text-white py-1 rounded font-bold mt-1">儲存手動修改</button>
+                </div>
+            </details>
+        </div>
+
+        <div class="flex border-b bg-white sticky top-0 z-10 shadow-sm">
+            <button onclick="showTab(1)" id="t1" class="flex-1 py-4 text-sm active-tab">歌詞神解析</button>
+            <button onclick="showTab(2)" id="t2" class="flex-1 py-4 text-sm text-gray-400">核心單字</button>
+            <button onclick="showTab(3)" id="t3" class="flex-1 py-4 text-sm text-gray-400">語法奧秘</button>
+        </div>
+
+        <div class="p-6 flex-1 bg-white">
+            <div id="c1"></div>
+            <div id="c2" class="card-hidden whitespace-pre-wrap leading-relaxed"></div>
+            <div id="c3" class="card-hidden whitespace-pre-wrap leading-relaxed"></div>
+        </div>
+    </div>
+
+    <div id="ai-widget" class="theme-bg text-2xl" onclick="toggleChat()">🐑</div>
+    <div id="ai-chat-box">
+        <div class="theme-bg p-3 text-white font-bold flex justify-between">
+            <span>カシカミ 助教</span>
+            <button onclick="toggleChat()" class="opacity-70 hover:opacity-100">✕</button>
+        </div>
+        <div id="chat-content" class="flex-1 p-4 overflow-y-auto text-sm space-y-3 bg-slate-50">
+            <div class="bg-white p-3 rounded-xl shadow-sm border-l-4 border-indigo-400">
+                <p class="text-gray-600 italic">咩～我是小羊助教！選好喜歡的字體了嗎？想聽發音可以點擊歌詞方塊喔！🐑</p>
+            </div>
+        </div>
+        <div class="p-2 border-t flex gap-1 bg-white">
+            <input type="text" id="chat-input" class="flex-1 border p-2 rounded-full text-xs px-4 outline-none focus:border-indigo-400" placeholder="詢問或請求轉換格式...">
+            <button onclick="chatWithAI()" class="theme-bg text-white px-4 rounded-full text-xs font-bold">問</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+
+        // 點擊發音
+        window.speak = function(element) {
+    const clone = element.querySelector('.jp-line').cloneNode(true);
+    const rts = clone.querySelectorAll('rt');
+    rts.forEach(rt => rt.remove());
+    const cleanText = clone.innerText;
+    const uttr = new SpeechSynthesisUtterance(cleanText);
+    uttr.lang = 'ja-JP';
+    uttr.rate = 0.85; 
+    window.speechSynthesis.speak(uttr);
+};
+
+        window.updateStyle = (p, v) => {
+            document.documentElement.style.setProperty(p, v);
+            localStorage.setItem('kashikami-' + p, v);
+        };
+
+        window.askAI = async function() {
+            const key = document.getElementById('apiKey').value.trim();
+            const song = document.getElementById('songName').value.trim();
+            if(!key || !song) return alert("請確認已輸入 API Key 與歌名");
+
+            const btn = document.getElementById('aiBtn');
+            btn.innerText = "生成中...";
+            btn.disabled = true;
+
+            try {
+                const genAI = new GoogleGenerativeAI(key);
+                const model = genAI.getGenerativeModel({ 
+                    model: "gemini-3-flash-preview", 
+                    tools: [{ googleSearchRetrieval: {} }] 
+                });
+
+                const prompt = `請搜尋歌曲《${song}》並回覆（使用 [SPLIT] 分隔）：
+                1. YouTube ID
+                [SPLIT]
+                2. 全曲歌詞。每句格式：<div class="lyric-block" onclick="speak(this)"><span class="jp-line">日文</span><span class="cn-line">中文</span></div>
+                [SPLIT]
+                3. 重點單字
+                [SPLIT]
+                4. 文法解析`;
+
+                const result = await model.generateContent(prompt);
+                const parts = (await result.response).text().split('[SPLIT]');
+                
+                if(parts.length >= 4) {
+                    document.getElementById('in-yt').value = parts[0].trim();
+                    document.getElementById('in-l').value = parts[1].trim();
+                    document.getElementById('in-w').value = parts[2].trim();
+                    document.getElementById('in-g').value = parts[3].trim();
+                    saveData();
+                }
+            } catch (e) { 
+    console.error(e);
+    content.innerHTML += `<div><span class="bg-red-100 p-2 rounded-lg text-red-600 inline-block text-xs"><b>老師:</b> 咩～我的 API 能量不足了（原因：${e.message}）</span></div>`;
+}
+            btn.innerText = "AI 生成";
+            btn.disabled = false;
+        };
+
+        window.toggleChat = () => {
+            const b = document.getElementById('ai-chat-box');
+            b.style.display = b.style.display === 'flex' ? 'none' : 'flex';
+        };
+
+        window.chatWithAI = async function() {
+            const input = document.getElementById('chat-input');
+            const key = document.getElementById('apiKey').value;
+            if(!input.value || !key) return;
+            const content = document.getElementById('chat-content');
+            content.innerHTML += `<div class="text-right"><span class="bg-indigo-50 p-2 rounded-lg inline-block text-xs shadow-sm">你: ${input.value}</span></div>`;
+            
+            try {
+                const genAI = new GoogleGenerativeAI(key);
+                const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+                const result = await model.generateContent("你是一隻愛聽歌的羊助教カシカミ。請回答並在結尾加『咩』：" + input.value);
+                content.innerHTML += `<div><span class="bg-white border p-2 rounded-lg shadow-sm inline-block text-xs"><b>老師:</b> ${ (await result.response).text() }</span></div>`;
+            } catch (e) { content.innerHTML += `<p class="text-red-400 text-[10px]">API 暫時休息中咩...</p>`; }
+            input.value = "";
+            content.scrollTop = content.scrollHeight;
+        };
+
+        window.showTab = (n) => {
+            for(let i=1;i<=3;i++){
+                document.getElementById('t'+i).className = "flex-1 py-4 text-sm text-gray-400";
+                document.getElementById('c'+i).classList.add('card-hidden');
+            }
+            document.getElementById('t'+n).className = "flex-1 py-4 text-sm active-tab";
+            document.getElementById('c'+n).classList.remove('card-hidden');
+        };
+
+        window.saveData = () => {
+            const date = document.getElementById('datePicker').value;
+            const data = { 
+                yt: document.getElementById('in-yt').value, 
+                l: document.getElementById('in-l').value,
+                w: document.getElementById('in-w').value,
+                g: document.getElementById('in-g').value
+            };
+            localStorage.setItem('kashikami-' + date, JSON.stringify(data));
+            loadLesson();
+        };
+
+        window.loadLesson = () => {
+            const date = document.getElementById('datePicker').value;
+            const raw = localStorage.getItem('kashikami-' + date);
+            if(raw) {
+                const item = JSON.parse(raw);
+                document.getElementById('in-yt').value = item.yt || "";
+                document.getElementById('in-l').value = item.l || "";
+                document.getElementById('in-w').value = item.w || "";
+                document.getElementById('in-g').value = item.g || "";
+                
+                document.getElementById('videoBox').innerHTML = item.yt ? `<iframe class="w-full h-full" src="https://www.youtube.com/embed/${item.yt}"></iframe>` : "";
+                document.getElementById('c1').innerHTML = item.l || "";
+                document.getElementById('c2').innerText = item.w || "";
+                document.getElementById('c3').innerText = item.g || "";
+            } else {
+                document.getElementById('c1').innerHTML = "<p class='text-center text-gray-400 mt-10 text-xs'>咩～今日尚無課程數據</p>";
+                ["in-yt", "in-l", "in-w", "in-g"].forEach(id => document.getElementById(id).value = "");
+                document.getElementById('videoBox').innerHTML = "<p class='text-slate-500 text-xs'>WATING FOR LESSON...</p>";
+            }
+        };
+
+        window.onload = () => {
+            document.getElementById('datePicker').value = new Date().toISOString().split('T')[0];
+            ['--theme-color', '--jp-color', '--cn-color', '--base-font-size', '--selected-font'].forEach(p => {
+                const v = localStorage.getItem('kashikami-' + p);
+                if(v) document.documentElement.style.setProperty(p, v);
+            });
+            loadLesson();
+        };
+    </script>
+</body>
+</html>
